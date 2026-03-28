@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #f0f2f5;
+        margin: 0;
+        padding: 10px;
+    }
+
+    #onlineUsers {
+        background: white;
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+        box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    }
+
+    #messages {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        background: white;
+        height: 350px;
+        overflow-y: auto;
+        border-radius: 5px;
+        padding: 10px;
+        box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    }
+
+    #messages li {
+        background: #e6f4ff;
+        padding: 8px 12px;
+        margin-bottom: 10px;
+        display: inline-block;
+        border-radius: 10px;
+        max-width: 80%;
+    }
+
+    #form {
+        margin-top: 10px;
+        display: flex;
+    }
+
+    #input {
+        flex: 1;
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        font-size: 15px;
+    }
+
+    button {
+        padding: 10px 15px;
+        margin-left: 8px;
+        border: none;
+        background: #1877f2;
+        color: white;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 15px;
+    }
+
+    button:hover {
+        background: #0f64c9;
+    }
+
+    #imageInput {
+        margin-top: 10px;
+        background: white;
+        padding: 8px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+    }
+
+    #typingDiv {
+        color: gray;
+        margin-top: 10px;
+        font-size: 14px;
+        font-style: italic;
+    }
+</style>
+
+<div id="onlineUsers"></div>
+
+<ul id="messages"></ul>
+
+<!-- Image upload -->
+<input type="file" id="imageInput" accept="image/*">
+
+<form id="form">
+    <input id="input" autocomplete="off" />
+    <button>Send</button>
+</form>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+    const socket = io();
+
+    // Ask for name
+    const username = prompt("Enter your name:");
+    socket.emit("new user", username);
+
+    const form = document.getElementById("form");
+    const input = document.getElementById("input");
+    const messages = document.getElementById("messages");
+    const onlineUsersDiv = document.getElementById("onlineUsers");
+    const imageInput = document.getElementById("imageInput");
+
+    const typingDiv = document.createElement("div");
+    typingDiv.id = "typingDiv";
+    document.body.appendChild(typingDiv);
+
+    input.addEventListener("keydown", () => {
+        socket.emit("typing", username);
+    });
+
+    form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (input.value) {
+            socket.emit("chat message", { user: username, text: input.value });
+            input.value = "";
+        }
+    });
+
+    // Send image
+    imageInput.addEventListener("change", () => {
+        const file = imageInput.files[0];
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            socket.emit("image", { user: username, img: reader.result });
+        };
+
+        reader.readAsDataURL(file);
+    });
+
+    // Show chat messages
+    socket.on("chat message", (msg) => {
+        const item = document.createElement("li");
+        item.textContent = msg.user + ": " + msg.text;
+        messages.appendChild(item);
+    });
+
+    // Show online users
+    socket.on("online users", (users) => {
+        onlineUsersDiv.innerHTML = "<b>Online Users:</b><br>" + users.join("<br>");
+    });
+
+    // Show typing indicator
+    socket.on("typing", (user) => {
+        typingDiv.textContent = user + " is typing...";
+        setTimeout(() => {
+            typingDiv.textContent = "";
+        }, 1000);
+    });
+
+    // Show images
+    socket.on("image", (data) => {
+        const item = document.createElement("li");
+        item.innerHTML = `<b>${data.user}:</b><br><img src="${data.img}" style="max-width:200px; border-radius:5px;">`;
+        messages.appendChild(item);
+    });
+</script>
+
+</body>
+</html>
